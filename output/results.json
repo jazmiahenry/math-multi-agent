@@ -1,0 +1,20 @@
+{
+  "query": "Calculate the mean, median, and standard deviation",
+  "timestamp": "2025-04-07T21:10:26.058253",
+  "results": {
+    "query": "Calculate the mean, median, and standard deviation",
+    "results": {
+      "mean": {
+        "error": "400 Bad Request: {\"error\":\"Simulated error\"}"
+      },
+      "median": 10.5,
+      "standard_deviation": 2.2742031571519727
+    },
+    "tools_used": [
+      "mean",
+      "median",
+      "standard_deviation"
+    ],
+    "summary": "Analysis completed using mean, median, standard_deviation."
+  }
+}
