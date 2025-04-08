@@ -1,6 +1,6 @@
 # Financial Analysis System
 
-![Financial Agent](img/fin_agent.png)
+![Financial Agent](img/fin_agent.jpg)
 
 A comprehensive financial analysis toolkit that leverages TypeScript tools, virtual tool management, and LLM-based reasoning for advanced financial data analysis.
 
