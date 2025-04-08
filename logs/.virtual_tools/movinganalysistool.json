@@ -1,0 +1,60 @@
+{
+  "name": "MovingAnalysis",
+  "description": "Tool for Calculate moving averages and identify trend reversals",
+  "tool_sequence": [
+    {
+      "tool": "calculate_volatility",
+      "param_mapping": {
+        "data": {
+          "type": "input",
+          "name": "data"
+        },
+        "numbers": {
+          "type": "input",
+          "name": "data"
+        },
+        "prices": {
+          "type": "input",
+          "name": "data"
+        }
+      }
+    },
+    {
+      "tool": "calculate_correlation",
+      "param_mapping": {
+        "data": {
+          "type": "input",
+          "name": "data"
+        },
+        "numbers": {
+          "type": "input",
+          "name": "data"
+        },
+        "prices": {
+          "type": "input",
+          "name": "data"
+        }
+      }
+    }
+  ],
+  "problem_pattern": {
+    "keywords": [
+      "moving",
+      "averages",
+      "identify",
+      "trend",
+      "reversals"
+    ],
+    "required_params": [
+      "data"
+    ],
+    "data_types": {
+      "data": "list"
+    }
+  },
+  "confidence": 0.5,
+  "execution_count": 1,
+  "success_rate": 1.0,
+  "created_at": "2025-04-07T21:44:59.649684",
+  "signature": "591fb90929939107869c694481bbd307"
+}
