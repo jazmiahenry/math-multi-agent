@@ -1,4 +1,4 @@
-autogen>=0.2.0
+agentops>=0.4.0 # For Agent Eval
 pandas>=1.3.0
 numpy>=1.20.0
 openpyxl>=3.0.7  # For Excel file support
@@ -12,3 +12,10 @@ statsmodels>=0.12.0  # For advanced statistical models
 python-dotenv>=0.19.0  # For loading environment variables
 pyyaml>=6.0  # For configuration files
 jsonschema>=4.0.0  # For JSON validation
+openai>=1.3.0
+numpy>=1.20.0
+torch>=2.0.0
+tqdm>=4.60.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+argparse>=1.4.0
