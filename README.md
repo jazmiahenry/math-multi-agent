@@ -150,7 +150,7 @@ Run an analysis with the `--create-tool` flag:
 python main.py --query "Calculate 10-day rolling volatility" --data financial_data.csv --create-tool
 ```
 
-Virtual tools are stored in the `.virtual_tools` directory (not visible in the current structure).
+Virtual tools are stored in the `logs/.virtual_tools` directory (not visible in the current structure).
 
 ## Output Format
 
