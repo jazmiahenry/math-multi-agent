@@ -31,11 +31,14 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("financial_analysis.log"),
+        logging.FileHandler("logs/financial_analysis.log", mode='a'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger("EnhancedFinancialAnalysis")
+
+# Make sure logs directory exists
+os.makedirs("logs", exist_ok=True)
 
 class ToolUsageTracker:
     """
@@ -115,6 +118,55 @@ class ToolUsageTracker:
         
         return tool_sequence_map.get(tool_name, [])
 
+def handle_simulated_error(error_msg, tool_name, data):
+    """Handle simulated errors and provide alternate calculations."""
+    # Log the error
+    logger.error(f"Simulated error detected in tool: {tool_name} - {error_msg}")
+
+    # Create fallback calculation based on the tool
+    if tool_name == "mean":
+        result = sum(data) / len(data) if data else 0
+        solution = "Using Python's built-in sum and division for mean calculation"
+    elif tool_name == "median":
+        sorted_data = sorted(data)
+        n = len(sorted_data)
+        result = (sorted_data[n//2-1] + sorted_data[n//2]) / 2 if n % 2 == 0 else sorted_data[n//2]
+        solution = "Using Python's built-in sorted function for median calculation"
+    elif tool_name == "std_deviation" or tool_name == "standard_deviation":
+        mean = sum(data) / len(data)
+        result = (sum((x - mean) ** 2 for x in data) / len(data)) ** 0.5
+        solution = "Using Python's built-in math operations for standard deviation"
+    elif tool_name == "calculate_volatility":
+        # Calculate returns first
+        returns = []
+        for i in range(1, len(data)):
+            daily_return = ((data[i] - data[i-1]) / data[i-1]) * 100
+            returns.append(daily_return)
+        # Calculate std dev of returns
+        mean_return = sum(returns) / len(returns)
+        result = (sum((x - mean_return) ** 2 for x in returns) / len(returns)) ** 0.5
+        solution = "Using Python implementation to calculate volatility from returns"
+    elif tool_name == "calculate_correlation":
+        series1 = data[:-1]
+        series2 = data[1:]
+        mean1 = sum(series1) / len(series1)
+        mean2 = sum(series2) / len(series2)
+        covariance = sum((series1[i] - mean1) * (series2[i] - mean2) for i in range(len(series1))) / len(series1)
+        std1 = (sum((x - mean1) ** 2 for x in series1) / len(series1)) ** 0.5
+        std2 = (sum((x - mean2) ** 2 for x in series2) / len(series2)) ** 0.5
+        result = covariance / (std1 * std2) if std1 > 0 and std2 > 0 else 0
+        solution = "Using Python implementation to calculate autocorrelation"
+    else:
+        result = None
+        solution = f"No fallback calculation available for {tool_name}"
+
+    return {
+        "error_tool": tool_name,
+        "error_message": error_msg,
+        "fallback_result": result,
+        "solution": solution
+    }
+
 async def process_query_with_tracking(query: str, data_source: str, verbose: bool = False) -> Dict[str, Any]:
     """
     Process a financial query with enhanced tracking and explanations.
@@ -150,15 +202,57 @@ async def process_query_with_tracking(query: str, data_source: str, verbose: boo
             {"error": "Unknown tool"}
         )
     
+    # Load data first
+    try:
+        data = agent.load_data(data_source)
+        if not data:
+            return {
+                "error": "No data could be loaded from the source",
+                "success": False
+            }
+    except Exception as e:
+        logger.error(f"Error loading data: {str(e)}")
+        return {
+            "error": f"Error loading data: {str(e)}",
+            "success": False
+        }
+    
     # Process the query using LLMFinancialAgent
-    response = await agent.process_query(query, data_file=data_source, verbose=verbose)
+    response = await agent.process_query(query, data=data, verbose=verbose)
     
     # Get analysis results for detailed metrics
-    data = agent.load_data(data_source)
     analysis = FinancialToolInterface.analyze_financial_query(query, data)
+    
+    # Initialize tracking variables
+    metrics = {}
+    error_details = []
     
     # Extract the tools used
     tools_used = analysis.get("tools_used", [])
+    
+    # Check for simulated errors in the analysis results
+    results = analysis.get("results", {})
+    for tool_name, result in results.items():
+        # Check for error strings
+        if isinstance(result, str) and "Simulated error" in result:
+            # Handle the error
+            error_info = handle_simulated_error(result, tool_name, data)
+            error_details.append(error_info)
+            
+            # Add fallback calculation to metrics
+            metrics[tool_name + "_fallback"] = error_info["fallback_result"]
+            metrics[tool_name + "_solution"] = error_info["solution"]
+        elif isinstance(result, dict) and "error" in result and "Simulated error" in str(result["error"]):
+            # Handle the error
+            error_info = handle_simulated_error(result["error"], tool_name, data)
+            error_details.append(error_info)
+            
+            # Add fallback calculation to metrics
+            metrics[tool_name + "_fallback"] = error_info["fallback_result"]
+            metrics[tool_name + "_solution"] = error_info["solution"]
+        else:
+            # No error, add the result to metrics
+            metrics[tool_name] = result
     
     # Generate enhanced tool sequence with reasoning
     enhanced_tool_sequence = []
@@ -170,7 +264,7 @@ async def process_query_with_tracking(query: str, data_source: str, verbose: boo
         reasoning = ToolUsageTracker.get_tool_reasoning(query, tool)
         
         # Create enhanced tool entry
-        enhanced_tool = {
+        tool_entry = {
             "step_id": i+1,
             "tool": tool,
             "reasoning": reasoning,
@@ -178,7 +272,18 @@ async def process_query_with_tracking(query: str, data_source: str, verbose: boo
             "payload": {"data": data[:5]} if i == 0 else {}  # Only show sample data
         }
         
-        enhanced_tool_sequence.append(enhanced_tool)
+        # Check if this tool had an error
+        had_error = False
+        for error in error_details:
+            if error["error_tool"] == tool:
+                had_error = True
+                tool_entry["error"] = error["error_message"]
+                tool_entry["fallback_result"] = error["fallback_result"]
+                tool_entry["solution"] = error["solution"]
+                break
+        
+        tool_entry["status"] = "error" if had_error else "success"
+        enhanced_tool_sequence.append(tool_entry)
     
     # Check if we have a matching virtual tool
     virtual_tool = vtool_manager.find_matching_tool(query, {"data": data})
@@ -205,11 +310,16 @@ async def process_query_with_tracking(query: str, data_source: str, verbose: boo
         },
         "success": True,
         "task_answer": response,
-        "metrics": analysis.get("results", {}),
+        "metrics": metrics,
         "enhanced_tool_sequence": enhanced_tool_sequence,
         "virtual_tool_used": virtual_tool_info,
         "timestamp": datetime.now().isoformat()
     }
+    
+    # Add error details if there were any
+    if error_details:
+        output_results["contains_simulated_errors"] = True
+        output_results["error_details"] = error_details
     
     return output_results
 
@@ -295,6 +405,11 @@ async def main():
         # Process the query with enhanced tracking
         results = await process_query_with_tracking(args.query, args.data, args.verbose)
         
+        # Check if the operation was successful
+        if "error" in results and not results.get("success", False):
+            print(f"Error: {results['error']}")
+            return None
+        
         # Try to create a virtual tool if requested
         if args.create_tool:
             tool_info = await try_create_virtual_tool(
@@ -313,18 +428,33 @@ async def main():
         print("\nResponse:")
         print(results["task_answer"])
         
+        # Display any error details
+        if "contains_simulated_errors" in results and results["contains_simulated_errors"]:
+            print("\n⚠️ Simulated Errors Detected and Handled:")
+            for error in results["error_details"]:
+                print(f"  Tool: {error['error_tool']}")
+                print(f"  Error: {error['error_message']}")
+                print(f"  Fallback Result: {error['fallback_result']}")
+                print(f"  Solution: {error['solution']}")
+        
         print("\nTools Used:")
         for tool in results["enhanced_tool_sequence"]:
-            print(f"  - {tool['tool']}")
+            status = "❌" if tool.get("status") == "error" else "✅"
+            print(f"  {status} {tool['tool']}")
             print(f"    Reasoning: {tool['reasoning']}")
-            if tool["typescript_tools"]:
+            if tool.get("typescript_tools"):
                 print(f"    TypeScript Tools: {', '.join(tool['typescript_tools'])}")
+            if tool.get("fallback_result") is not None:
+                print(f"    Fallback Result: {tool['fallback_result']}")
+                print(f"    Solution: {tool['solution']}")
+        
+        # Create directory for output if it doesn't exist
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
         
         # Save to JSON file
-        output_path = args.output
-        with open(output_path, 'w') as f:
+        with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)
-        print(f"\nDetailed results saved to {output_path}")
+        print(f"\nDetailed results saved to {args.output}")
         
         return results
         
