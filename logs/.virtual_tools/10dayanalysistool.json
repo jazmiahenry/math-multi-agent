@@ -1,0 +1,44 @@
+{
+  "name": "10-dayAnalysis",
+  "description": "Tool for Calculate 10-day rolling volatility and identify high-risk periods",
+  "tool_sequence": [
+    {
+      "tool": "calculate_volatility",
+      "param_mapping": {
+        "data": {
+          "type": "input",
+          "name": "data"
+        },
+        "numbers": {
+          "type": "input",
+          "name": "data"
+        },
+        "prices": {
+          "type": "input",
+          "name": "data"
+        }
+      }
+    }
+  ],
+  "problem_pattern": {
+    "keywords": [
+      "10-day",
+      "rolling",
+      "volatility",
+      "identify",
+      "high-risk",
+      "periods"
+    ],
+    "required_params": [
+      "data"
+    ],
+    "data_types": {
+      "data": "list"
+    }
+  },
+  "confidence": 0.5,
+  "execution_count": 1,
+  "success_rate": 1.0,
+  "created_at": "2025-04-08T08:42:14.951468",
+  "signature": "9ff765b2292a5d4cf2243053ff1dc38c"
+}
